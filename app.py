@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 from pydantic import BaseModel
 import uuid
 from pymongo import MongoClient
-import os
+import os, time
 from PIL import Image
 from dotenv import load_dotenv
 import io
@@ -50,6 +50,10 @@ class LLMItem(BaseModel):
     input_prompt: str
     output_prompt: dict
     metadata: dict
+
+class MinerItem(BaseModel):
+    validator_uid: int
+    miner_uid: int
 
 app = FastAPI()
 mongo_client = MongoClient(f'mongodb://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/')
@@ -119,12 +123,38 @@ async def upload_llm_item(item: dict):
     return {"message": "Item uploaded successfully"}
 @app.post("/store_miner_info")
 async def store_miner_info(item: dict):
+    record = validator_collection.find_one({"uid": item['uid']})
+    if not record:
+        for k, v in item["info"].items():
+            v.pop("timeline_score", None)
+        record = item
+    else:
+        record.pop('_id', None)
+
+    for k, v in item["info"].items():
+        v.pop("timeline_score", None)
+        record["info"][k].update(v)
+        if not v.get("model_name"):
+            continue
+        else: 
+            dt = {
+                "reward": sum(v["scores"]) / 10,
+                "time": time.time()
+            }
+            if k in record["info"]:
+                timeline = record["info"][k].get("timeline_score", [])
+            else:
+                timeline = []
+            timeline.append(dt)
+            record["info"][k]["timeline_score"] = timeline[-300:]
+        
     uid = item['uid']
     validator_collection.update_one(
         {"uid": uid},
-        {"$set": item},
+        {"$set": record},
         upsert=True
     )
+
     return {"message": "Item uploaded successfully"}
 
 @app.get("/get_miner_info")
@@ -132,10 +162,20 @@ async def get_miner_info():
     validator_info = {}
     for validator in validator_collection.find():
         uid = validator['uid']
+        for k in validator["info"]:
+            validator["info"][k].pop("timeline_score", None)
         validator_info[uid] = {
             "info": validator["info"]
         }
     return validator_info
+
+@app.post("/get_miner_timeline")
+async def get_miner_timeline(item: MinerItem):
+    validator_data = validator_collection.find_one({"uid": item.validator_uid})
+    miner_data = validator_data["info"][str(item.miner_uid)]
+    return miner_data
+
+
 
 @app.get("/get_image/{bucket}/{key}")
 async def get_image(bucket: str, key: str):
