@@ -134,20 +134,16 @@ async def store_miner_info(item: dict):
     for k, v in item["info"].items():
         v.pop("timeline_score", None)
         record["info"][k].update(v)
-        if not v.get("model_name"):
-            dt = {
-                "reward": 0,
-                "time": time.time()
-            }
-        else: 
-            dt = {
-                "reward": sum(v["scores"]) / 10,
-                "time": time.time()
-            }
-            if k in record["info"]:
-                timeline = record["info"][k].get("timeline_score", [])
-            else:
-                timeline = []
+
+        dt = {
+            "reward": sum(v["scores"]) / 10,
+            "time": time.time()
+        }
+        if k in record["info"]:
+            timeline = record["info"][k].get("timeline_score", [])
+        else:
+            timeline = []
+            
         timeline.append(dt)
         record["info"][k]["timeline_score"] = timeline[-300:]
         
