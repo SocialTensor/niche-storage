@@ -133,7 +133,10 @@ async def store_miner_info(item: dict):
 
     for k, v in item["info"].items():
         v.pop("timeline_score", None)
-        record["info"][k].update(v)
+        if k in record["info"]:
+            record["info"][k].update(v)
+        else:
+            record["info"][k] = v
 
         dt = {
             "reward": sum(v["scores"]) / 10,
@@ -145,7 +148,7 @@ async def store_miner_info(item: dict):
             timeline = []
             
         timeline.append(dt)
-        record["info"][k]["timeline_score"] = timeline[-300:]
+        record["info"][k]["timeline_score"] = timeline[-100:]
         
     uid = item['uid']
     validator_collection.update_one(
