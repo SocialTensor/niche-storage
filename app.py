@@ -123,40 +123,46 @@ async def upload_llm_item(item: dict):
     return {"message": "Item uploaded successfully"}
 @app.post("/store_miner_info")
 async def store_miner_info(item: dict):
-    record = validator_collection.find_one({"_id": item['uid']})
+    uid = item['uid']
+    
+    # Find the record by its _id
+    record = validator_collection.find_one({"_id": uid})
+    print(f"Record found: {bool(record)}")
+    # If the record does not exist, create it from item
     if not record:
-        for k, v in item["info"].items():
-            v.pop("timeline_score", None)
-        record = item
-    else:
-        record.pop('_id', None)
-
+        record = {
+            "_id": uid,  # Ensure the record keeps _id
+            "info": {}
+        }
+    
+    # Update the info field while preserving existing data
     for k, v in item["info"].items():
-        v.pop("timeline_score", None)
+        v.pop("timeline_score", None)  # Remove timeline_score if present
+        
+        # Merge the new information into the existing record
         if k in record["info"]:
             record["info"][k].update(v)
         else:
             record["info"][k] = v
-
+        
+        # Add timeline score
         dt = {
             "reward": sum(v["scores"]) / 10,
             "time": time.time()
         }
-        if k in record["info"]:
-            timeline = record["info"][k].get("timeline_score", [])
-        else:
-            timeline = []
-            
+        timeline = record["info"][k].get("timeline_score", [])
         timeline.append(dt)
-        record["info"][k]["timeline_score"] = timeline[-100:]
-        
-    uid = item['uid']
-    validator_collection.update_one(
+        record["info"][k]["timeline_score"] = timeline[-100:]  # Keep only the last 100 entries
+
+    # Update or insert the record into the collection
+    result = validator_collection.update_one(
         {"_id": uid},
         {"$set": record},
         upsert=True
     )
+    print(f"Matched: {result.matched_count}, Modified: {result.modified_count}")
 
+    
     return {"message": "Item uploaded successfully"}
 
 @app.get("/get_miner_info")
