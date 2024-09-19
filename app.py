@@ -127,6 +127,7 @@ async def store_miner_info(item: dict):
     
     # Find the record by its _id
     record = validator_collection.find_one({"_id": uid})
+    print(record["uid"], record["version"])
     print(f"Record found: {bool(record)}")
     # If the record does not exist, create it from item
     if not record:
