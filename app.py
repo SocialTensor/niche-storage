@@ -154,7 +154,7 @@ async def store_miner_info(item: dict):
         timeline = record["info"][k].get("timeline_score", [])
         timeline.append(dt)
         record["info"][k]["timeline_score"] = timeline[-100:]  # Keep only the last 100 entries
-
+    print(record["uid"], record["version"])
     # Update or insert the record into the collection
     result = validator_collection.replace_one(
         {"_id": uid},
