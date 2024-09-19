@@ -170,12 +170,16 @@ async def store_miner_info(item: dict):
 async def get_miner_info():
     validator_info = {}
     for validator in validator_collection.find():
-        uid = validator['uid']
-        for k in validator["info"]:
-            validator["info"][k].pop("timeline_score", None)
-        validator_info[uid] = {
-            "info": validator["info"]
-        }
+        try:
+            uid = validator['uid']
+            for k in validator["info"]:
+                validator["info"][k].pop("timeline_score", None)
+            validator_info[uid] = {
+                "info": validator["info"]
+            }
+        except Exception as e:
+            print("get_miner_info", e)
+            continue
     return validator_info
 
 @app.post("/get_miner_timeline")
