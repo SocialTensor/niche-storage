@@ -155,9 +155,9 @@ async def store_miner_info(item: dict):
         record["info"][k]["timeline_score"] = timeline[-100:]  # Keep only the last 100 entries
 
     # Update or insert the record into the collection
-    result = validator_collection.update_one(
+    result = validator_collection.replace_one(
         {"_id": uid},
-        {"$set": record},
+        record,
         upsert=True
     )
     print(f"Matched: {result.matched_count}, Modified: {result.modified_count}")
