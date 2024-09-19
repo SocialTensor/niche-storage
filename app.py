@@ -139,12 +139,7 @@ async def store_miner_info(item: dict):
     # Update the info field while preserving existing data
     for k, v in item["info"].items():
         v.pop("timeline_score", None)  # Remove timeline_score if present
-        
-        # Merge the new information into the existing record
-        if k in record["info"]:
-            record["info"][k].update(v)
-        else:
-            record["info"][k] = v
+        record["info"][k] = v
         
         # Add timeline score
         dt = {
