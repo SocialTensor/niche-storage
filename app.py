@@ -124,12 +124,13 @@ async def upload_llm_item(item: dict):
 @app.post("/store_miner_info")
 async def store_miner_info(item: dict):
     record = validator_collection.find_one({"_id": item['uid']})
+    
     if not record:
         for k, v in item["info"].items():
             v.pop("timeline_score", None)
         record = item
     else:
-        record.pop('_id', None)
+        print(record.get("uid"), record.get("version"))
 
     for k, v in item["info"].items():
         v.pop("timeline_score", None)
@@ -151,6 +152,7 @@ async def store_miner_info(item: dict):
         record["info"][k]["timeline_score"] = timeline[-100:]
         
     uid = item['uid']
+    print(record["uid"], record["version"])
     validator_collection.update_one(
         {"_id": uid},
         {"$set": record},
