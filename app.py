@@ -150,7 +150,8 @@ async def store_miner_info(item: dict):
             
         timeline.append(dt)
         record["info"][k]["timeline_score"] = timeline[-100:]
-        
+    item.pop("info")
+    record.update(item)
     uid = item['uid']
     print(record["uid"], record["version"])
     validator_collection.update_one(
