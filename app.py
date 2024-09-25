@@ -68,95 +68,66 @@ print(s3.list_buckets())
 
 @app.post("/upload-base64-item")
 async def upload_image(item: Base64Item):
-    try:
-        image = base64_to_image(item.image)
-        image = image.convert('RGB')
-        image_io = io.BytesIO()
-        image.save(image_io, format='JPEG')
-        image_io.seek(0)
+    # try:
+    #     image = base64_to_image(item.image)
+    #     image = image.convert('RGB')
+    #     image_io = io.BytesIO()
+    #     image.save(image_io, format='JPEG')
+    #     image_io.seek(0)
 
-        filename = f"{get_random_uuid()}.jpg"
-        # Upload image to S3
-        s3.put_object(Bucket=BUCKET_NAME, Key=filename, Body=image_io, ContentType='image/jpeg')
-        metadata = item.metadata
-        metadata.update({"key": filename, "bucket": BUCKET_NAME})
-        url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{filename}"
-        # Insert metadata to MongoDB
-        image_collection.insert_one(metadata)
+    #     filename = f"{get_random_uuid()}.jpg"
+    #     # Upload image to S3
+    #     s3.put_object(Bucket=BUCKET_NAME, Key=filename, Body=image_io, ContentType='image/jpeg')
+    #     metadata = item.metadata
+    #     metadata.update({"key": filename, "bucket": BUCKET_NAME})
+    #     url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{filename}"
+    #     # Insert metadata to MongoDB
+    #     image_collection.insert_one(metadata)
 
-    except ClientError as e:
-        return {"message": "Failed to upload image", "error": e}
+    # except ClientError as e:
+    #     return {"message": "Failed to upload image", "error": e}
     return {"message": "Image uploaded successfully"}
 
 @app.post("/upload-go-journey-item")
 async def upload_mid_journey_item(item: MidJourneyItem):
-    try:
-        metadata = item.metadata
-        image: Image.Image = await get_gojourney_item(item.output)
-        image_io = io.BytesIO()
-        image.save(image_io, format='PNG')
-        low_io = io.BytesIO()
-        image.save(low_io, format='JPEG')
-        image_io.seek(0)
-        low_io.seek(0)
+    # try:
+    #     metadata = item.metadata
+    #     image: Image.Image = await get_gojourney_item(item.output)
+    #     image_io = io.BytesIO()
+    #     image.save(image_io, format='PNG')
+    #     low_io = io.BytesIO()
+    #     image.save(low_io, format='JPEG')
+    #     image_io.seek(0)
+    #     low_io.seek(0)
 
-        filename = f"{get_random_uuid()}.png"
-        low_filename = f"{get_random_uuid()}.jpg"
-        # Upload image to S3
-        s3.put_object(Bucket=BUCKET_NAME, Key=filename, Body=image_io, ContentType='image/png')
-        s3.put_object(Bucket=BUCKET_NAME, Key=low_filename, Body=low_io, ContentType='image/jpeg')
-        metadata.update({"key": filename, "bucket": BUCKET_NAME, "jpg_key": low_filename})
-        # Insert metadata to MongoDB
-        image_collection.insert_one(metadata)
+    #     filename = f"{get_random_uuid()}.png"
+    #     low_filename = f"{get_random_uuid()}.jpg"
+    #     # Upload image to S3
+    #     s3.put_object(Bucket=BUCKET_NAME, Key=filename, Body=image_io, ContentType='image/png')
+    #     s3.put_object(Bucket=BUCKET_NAME, Key=low_filename, Body=low_io, ContentType='image/jpeg')
+    #     metadata.update({"key": filename, "bucket": BUCKET_NAME, "jpg_key": low_filename})
+    #     # Insert metadata to MongoDB
+    #     image_collection.insert_one(metadata)
 
-    except ClientError as e:
-        return {"message": "Failed to upload item", "error": e}
+    # except ClientError as e:
+    #     return {"message": "Failed to upload item", "error": e}
     return {"message": "Item uploaded successfully"}
 
 @app.post("/upload-llm-item")
 async def upload_llm_item(item: dict):
-    try:
-        text_collection.insert_one(item)
+    # try:
+    #     text_collection.insert_one(item)
 
-    except ClientError as e:
-        return {"message": "Failed to upload item", "error": e}
+    # except ClientError as e:
+    #     return {"message": "Failed to upload item", "error": e}
     return {"message": "Item uploaded successfully"}
 @app.post("/store_miner_info")
 async def store_miner_info(item: dict):
-    record = validator_collection.find_one({"_id": item['uid']})
-    
-    if not record:
-        for k, v in item["info"].items():
-            v.pop("timeline_score", None)
-        record = item
-    else:
-        print(record.get("uid"), record.get("version"))
-
-    for k, v in item["info"].items():
-        v.pop("timeline_score", None)
-        if k in record["info"]:
-            record["info"][k].update(v)
-        else:
-            record["info"][k] = v
-
-        dt = {
-            "reward": sum(v["scores"]) / 10,
-            "time": time.time()
-        }
-        if k in record["info"]:
-            timeline = record["info"][k].get("timeline_score", [])
-        else:
-            timeline = []
-            
-        timeline.append(dt)
-        record["info"][k]["timeline_score"] = timeline[-100:]
-    item.pop("info")
-    record.update(item)
-    uid = item['uid']
-    print(record["uid"], record["version"])
+    uid = item["uid"]
+    print(uid, item.get("version", "no-version"))
     validator_collection.update_one(
         {"_id": uid},
-        {"$set": record},
+        {"$set": item},
         upsert=True
     )
 
