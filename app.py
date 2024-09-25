@@ -139,13 +139,14 @@ async def get_miner_info():
     for validator in validator_collection.find():
         try:
             uid = validator['uid']
-            for k in validator["info"]:
-                validator["info"][k].pop("timeline_score", None)
+            # for k in validator["info"]:
+            #     validator["info"][k].pop("timeline_score", None)
             validator_info[uid] = {
                 "info": validator["info"]
             }
         except Exception as e:
             print(e)
+            print(str(validator)[:100])
             continue
     return validator_info
 
