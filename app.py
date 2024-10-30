@@ -10,6 +10,7 @@ from PIL import Image
 from dotenv import load_dotenv
 import io
 from utils import get_gojourney_item
+from prometheus_fastapi_instrumentator import Instrumentator
 
 def pil_image_to_base64(image: Image) -> str:
     """Converts PIL image to base64 string."""
@@ -56,6 +57,8 @@ class MinerItem(BaseModel):
     miner_uid: int
 
 app = FastAPI()
+Instrumentator().instrument(app).expose(app)
+
 mongo_client = MongoClient(f'mongodb://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/')
 image_collection = mongo_client['nicheimage']['images']
 text_collection = mongo_client['nicheimage']['texts']

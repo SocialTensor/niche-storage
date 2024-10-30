@@ -6,3 +6,4 @@ pymongo[svr]
 python-dotenv
 pillow
 httpx
+prometheus_fastapi_instrumentator==6.0.0
