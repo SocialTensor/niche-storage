@@ -1,3 +1,4 @@
+import json
 from threading import Lock
 from collections import defaultdict
 from fastapi import FastAPI, Request, Depends, HTTPException
@@ -108,8 +109,12 @@ class RequestValidator:
 
             # Proceed with signature verification
             validator_ss58_address = self.metagraph.hotkeys[validator_uid]
-            message = f"{validator_ss58_address}{body['nonce']}"
+            # Remove 'nonce' and 'signature' to get the original signed data structure
+            original_data = {k: v for k, v in body.items() if k not in {"nonce", "signature"}}
+            serialized_data = json.dumps(original_data, sort_keys=True, separators=(',', ':'))
+            message = f"{serialized_data}{validator_ss58_address}{body['nonce']}"
             keypair = bt.Keypair(ss58_address=validator_ss58_address)
+            
             is_verified = keypair.verify(message, body["signature"])
         except (ValueError, KeyError):
             is_verified = False
