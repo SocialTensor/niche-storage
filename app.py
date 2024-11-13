@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request
+from threading import Lock
+from collections import defaultdict
+from fastapi import FastAPI, Request, Depends, HTTPException
 import base64
 import boto3
 from botocore.exceptions import ClientError
@@ -10,6 +12,7 @@ from PIL import Image
 from dotenv import load_dotenv
 import io
 from utils import get_gojourney_item
+import bittensor as bt
 from prometheus_fastapi_instrumentator import Instrumentator
 
 def pil_image_to_base64(image: Image) -> str:
@@ -56,6 +59,68 @@ class MinerItem(BaseModel):
     validator_uid: int
     miner_uid: int
 
+class RequestValidator:
+    REQUEST_EXPIRY_LIMIT_SECONDS = 5  # Expiry limit constant
+    metagraph = bt.subtensor("finney").metagraph(23)
+
+    def __init__(self):
+        # In-memory storage for used nonces (consider using Redis in production)
+        self.used_nonces = defaultdict(dict)
+        self.nonce_lock = Lock()  # Lock for thread-safe access
+
+    async def validate_request(self, request: Request):
+        body = await request.json()
+
+        # Ensure required fields are in the request body
+        if "metadata" not in body or not all(field in body for field in ["nonce", "signature"]):
+            raise HTTPException(status_code=400, detail="Missing required fields in request")
+
+        # Ensure validator_uid is in the metadata
+        if "validator_uid" not in body["metadata"]:
+            raise HTTPException(status_code=400, detail="Missing required 'validator_uid' in metadata")
+
+        # Perform the nonce (timestamp) check
+        try:
+            received_time_ns = int(body["nonce"])
+            current_time_ns = time.time_ns()
+            time_difference_seconds = (current_time_ns - received_time_ns) / 1e9  # Convert nanoseconds to seconds
+
+            if time_difference_seconds > self.REQUEST_EXPIRY_LIMIT_SECONDS:
+                raise HTTPException(status_code=400, detail="Request expired")
+
+            validator_uid = body["metadata"]["validator_uid"]
+            # Check if nonce is already used
+            with self.nonce_lock:
+                if validator_uid in self.used_nonces and received_time_ns in self.used_nonces[validator_uid]:
+                    raise HTTPException(status_code=400, detail="Replay attack detected")
+
+                # Store nonce as used with expiration
+                self.used_nonces[validator_uid][received_time_ns] = current_time_ns
+
+            # Clean up expired nonces to prevent memory bloat
+            with self.nonce_lock:
+                for uid, nonces in list(self.used_nonces.items()):
+                    self.used_nonces[uid] = {
+                        ts: time_ns
+                        for ts, time_ns in nonces.items()
+                        if (current_time_ns - time_ns) / 1e9 <= self.REQUEST_EXPIRY_LIMIT_SECONDS
+                    }
+
+            # Proceed with signature verification
+            validator_ss58_address = self.metagraph.hotkeys[validator_uid]
+            message = f"{validator_ss58_address}{body['nonce']}"
+            keypair = bt.Keypair(ss58_address=validator_ss58_address)
+            is_verified = keypair.verify(message, body["signature"])
+        except (ValueError, KeyError):
+            is_verified = False
+
+        if not is_verified:
+            raise HTTPException(status_code=400, detail="Cannot verify validator")
+
+
+# Dependency instance
+request_validator = RequestValidator()
+
 app = FastAPI()
 Instrumentator().instrument(app).expose(app)
 
@@ -70,7 +135,7 @@ BUCKET_NAME = 'nicheimage-real-caption'
 print(s3.list_buckets())
 
 @app.post("/upload-base64-item")
-async def upload_image(item: Base64Item):
+async def upload_image(item: Base64Item, _=Depends(request_validator.validate_request)):
     # try:
     #     image = base64_to_image(item.image)
     #     image = image.convert('RGB')
@@ -92,7 +157,7 @@ async def upload_image(item: Base64Item):
     return {"message": "Image uploaded successfully"}
 
 @app.post("/upload-go-journey-item")
-async def upload_mid_journey_item(item: MidJourneyItem):
+async def upload_mid_journey_item(item: MidJourneyItem, _=Depends(request_validator.validate_request)):
     # try:
     #     metadata = item.metadata
     #     image: Image.Image = await get_gojourney_item(item.output)
@@ -117,7 +182,7 @@ async def upload_mid_journey_item(item: MidJourneyItem):
     return {"message": "Item uploaded successfully"}
 
 @app.post("/upload-llm-item")
-async def upload_llm_item(item: dict):
+async def upload_llm_item(item: dict, _=Depends(request_validator.validate_request)):
     # try:
     #     text_collection.insert_one(item)
 
