@@ -116,7 +116,7 @@ class RequestValidator:
             keypair = bt.Keypair(ss58_address=validator_ss58_address)
             
             is_verified = keypair.verify(message, body["signature"])
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, IndexError):
             is_verified = False
 
         if not is_verified:
