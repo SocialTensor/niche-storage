@@ -1,20 +1,25 @@
+import os
+import io
 import json
-from threading import Lock
-from collections import defaultdict
-from fastapi import FastAPI, Request, Depends, HTTPException
+import time
+import uuid
 import base64
+import functools
+from PIL import Image
+import threading
+from collections import defaultdict
+
 import boto3
 from botocore.exceptions import ClientError
-from pydantic import BaseModel
-import uuid
 from pymongo import MongoClient
-import os, time
-from PIL import Image
-from dotenv import load_dotenv
-import io
-from utils import get_gojourney_item
 import bittensor as bt
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from fastapi import FastAPI, Request, Depends, HTTPException
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from utils import get_gojourney_item
+
 
 def pil_image_to_base64(image: Image) -> str:
     """Converts PIL image to base64 string."""
@@ -62,14 +67,22 @@ class MinerItem(BaseModel):
 
 class RequestValidator:
     REQUEST_EXPIRY_LIMIT_SECONDS = 5  # Expiry limit constant
-    metagraph = bt.subtensor("finney").metagraph(23)
 
     def __init__(self):
         # In-memory storage for used nonces (consider using Redis later)
         self.upload_used_nonces = defaultdict(dict)
-        self.upload_nonce_lock = Lock()  # Lock for thread-safe access
+        self.upload_nonce_lock = threading.Lock()  # Lock for thread-safe access
         self.store_used_nonces = defaultdict(dict)
-        self.store_nonce_lock = Lock()  # Lock for thread-safe access
+        self.store_nonce_lock = threading.Lock()  # Lock for thread-safe access
+
+        self.metagraph = bt.subtensor("finney").metagraph(23)
+        threading.Thread(target=self.sync_metagraph_periodically, daemon=True).start()
+
+    def sync_metagraph_periodically(self) -> None:
+        while True:
+            print("Syncing metagraph", flush=True)
+            self.metagraph.sync(subtensor=self.subtensor, lite=True)
+            time.sleep(60 * 10)
 
     def _timestamp_check(self, received_time_ns):
         received_time_ns = int(received_time_ns)
