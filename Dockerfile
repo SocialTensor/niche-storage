@@ -9,6 +9,7 @@ RUN pip install -r requirements.txt
 
 COPY app.py ./
 COPY utils.py ./
+COPY dependencies.py ./
 
 EXPOSE 10000
 

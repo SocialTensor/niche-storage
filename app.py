@@ -1,16 +1,21 @@
-from fastapi import FastAPI, Request
+import os
+import io
+import uuid
 import base64
+from PIL import Image
+
 import boto3
 from botocore.exceptions import ClientError
-from pydantic import BaseModel
-import uuid
 from pymongo import MongoClient
-import os, time
-from PIL import Image
 from dotenv import load_dotenv
-import io
-from utils import get_gojourney_item
+from pydantic import BaseModel
+from fastapi import FastAPI, Depends
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from dependencies import request_validator
+
+from utils import get_gojourney_item
+
 
 def pil_image_to_base64(image: Image) -> str:
     """Converts PIL image to base64 string."""
@@ -56,6 +61,7 @@ class MinerItem(BaseModel):
     validator_uid: int
     miner_uid: int
 
+
 app = FastAPI()
 Instrumentator().instrument(app).expose(app)
 
@@ -70,7 +76,7 @@ BUCKET_NAME = 'nicheimage-real-caption'
 print(s3.list_buckets())
 
 @app.post("/upload-base64-item")
-async def upload_image(item: Base64Item):
+async def upload_image(item: Base64Item, _=Depends(request_validator.validate_upload_request)):
     # try:
     #     image = base64_to_image(item.image)
     #     image = image.convert('RGB')
@@ -92,7 +98,7 @@ async def upload_image(item: Base64Item):
     return {"message": "Image uploaded successfully"}
 
 @app.post("/upload-go-journey-item")
-async def upload_mid_journey_item(item: MidJourneyItem):
+async def upload_mid_journey_item(item: MidJourneyItem, _=Depends(request_validator.validate_upload_request)):
     # try:
     #     metadata = item.metadata
     #     image: Image.Image = await get_gojourney_item(item.output)
@@ -117,7 +123,7 @@ async def upload_mid_journey_item(item: MidJourneyItem):
     return {"message": "Item uploaded successfully"}
 
 @app.post("/upload-llm-item")
-async def upload_llm_item(item: dict):
+async def upload_llm_item(item: dict, _=Depends(request_validator.validate_upload_request)):
     # try:
     #     text_collection.insert_one(item)
 
@@ -125,7 +131,7 @@ async def upload_llm_item(item: dict):
     #     return {"message": "Failed to upload item", "error": e}
     return {"message": "Item uploaded successfully"}
 @app.post("/store_miner_info")
-async def store_miner_info(item: dict):
+async def store_miner_info(item: dict, _=Depends(request_validator.validate_store_request)):
     uid = item["uid"]
     print(uid, item.get("version", "no-version"))
     validator_collection.update_one(

@@ -7,3 +7,4 @@ python-dotenv
 pillow
 httpx
 prometheus_fastapi_instrumentator==6.0.0
+bittensor==6.9.4
