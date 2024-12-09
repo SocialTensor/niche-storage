@@ -137,7 +137,7 @@ threading.Thread(target=sync_metagraph_periodically, daemon=True).start()
 #             raise HTTPException(status_code=400, detail="Cannot verify validator")
 
 class RequestValidator:
-    REQUEST_EXPIRY_LIMIT_SECONDS = 5  # Expiry limit constant
+    REQUEST_EXPIRY_LIMIT_SECONDS = 15  # Expiry limit constant
 
     def __init__(self):
         # In-memory storage for used nonces (consider using Redis later)
